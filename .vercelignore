@@ -1,0 +1,10 @@
+.git/
+.local-check/
+artifacts/
+tests/
+scripts/capture-preview.mjs
+DESIGN_PLAN.md
+IMPLEMENTATION.md
+playwright-report/
+test-results/
+coverage/
