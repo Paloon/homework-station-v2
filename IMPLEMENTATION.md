@@ -6,7 +6,7 @@
 
 - นักเรียนเลือกชื่อเหมือนเดิม ใช้ห้องเดียว เริ่มข้อมูลใหม่ ไม่ย้ายข้อมูลจาก Old
 - ยังไม่ทำอีเมล เน้นติดตามงานก่อน
-- จบส่วน local ก่อน และสร้างบริการใหม่ภายหลัง ไม่มีการสร้าง Supabase/Git remote/Vercel/UptimeRobot ในรอบนี้
+- เริ่มจาก local แล้วผู้ใช้อนุญาตให้สร้างและเชื่อม Supabase/Git remote/Vercel/UptimeRobot ต่อในวันที่ 29 ต.ค. 2569 สถานะบริการล่าสุดอยู่ใน `DEPLOYMENT.md`
 
 ## ขอบเขตที่พัฒนาและตรวจแล้วในเครื่อง
 
@@ -37,11 +37,11 @@
 
 ## งานต่อเมื่อสร้างบริการ
 
-- [ ] สร้าง Supabase development project, apply migrations, เพิ่มบัญชีผู้ดูแล และตั้ง `.env` ตาม README
+- [x] สร้าง Supabase project ใหม่, apply migrations, เพิ่มบัญชีผู้ดูแล และตั้ง `.env` ตาม README (ฐาน production; automated tests ใช้ fixture แยก)
 - [ ] ตรวจ PostgREST/Auth/RLS/Realtime/Storage บน Supabase จริง โดยเปิดสอง browser และทดสอบหลุดแล้ว reconnect
 - [ ] ตรวจการอัปโหลด/activate ล้มเหลว/สลับรูปพร้อมกันกับ Storage จริง; รูปจริงยังรอผู้ใช้ตามแผน
 - [ ] ตรวจ browser zoom และอุปกรณ์จริงเพิ่มเติม (ที่ทดสอบ text 200% เป็นการขยายฟอนต์ของ document)
-- [ ] ตั้ง Git Repo ใหม่และ verify remote หลัง push, Vercel Preview แยกข้อมูลจาก production และตรวจ function/URL จริง
+- [x] ตั้ง Git Repo ใหม่และ verify remote หลัง push, deploy Vercel production และตรวจ function/URL จริง; Preview ไม่ตั้งค่าให้เข้าถึงฐาน production
 - [ ] ตั้ง UptimeRobot และผู้รับแจ้ง failure/recovery แล้วทำ drill ใน environment ทดสอบ
 - [ ] ผู้ใช้ตรวจ flow และทดสอบสำรอง/คืนข้อมูลก่อนเปิดใช้จริง
 

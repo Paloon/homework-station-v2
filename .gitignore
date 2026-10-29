@@ -9,3 +9,5 @@ coverage/
 .local-check/
 supabase/.temp/
 artifacts/supabase-*.png
+artifacts/live-*.png
+artifacts/monitor-*.png

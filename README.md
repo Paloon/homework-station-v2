@@ -71,7 +71,9 @@ npm run build
 
 `GET /api/health` และ `HEAD /api/health` ตรวจอ่าน `classrooms.id` ไม่เกินหนึ่งแถว ผลว่างคือ 200; config หาย/network/database error คือ 503; timeout 5 วินาทียกเลิก request จริง ผลตอบเป็น JSON และ `Cache-Control: no-store` ไม่มี SPA rewrite มาทับ route นี้ `npm run dev` รองรับ endpoint เดียวกันเพื่อทดสอบในเครื่อง แต่ `vite preview` เสิร์ฟเฉพาะ frontend ให้ตรวจ function บน Vercel Preview เพิ่ม
 
-หลัง deploy ตรวจหน้าเว็บและ `/api/health` บน URL จริง จากนั้นตั้ง UptimeRobot HTTP GET ที่ health URL ให้รับ 200 และตั้งผู้รับ failure/recovery ตามบัญชีจริง ยังไม่ได้สร้าง Git remote, Vercel project หรือ UptimeRobot monitor ในการพัฒนา local นี้
+เว็บจริง: https://homework-station-v2.vercel.app/ — เชื่อม Supabase และให้สิทธิ์บัญชีผู้ดูแลที่ผู้ใช้สร้างแล้ว เข้าหน้าจัดการด้วยอีเมลและรหัสผ่านที่ตั้ง จากนั้นเริ่มตั้งชื่อห้อง/ภาคเรียน เพิ่มรายชื่อ วิชา และงานได้
+
+ตั้ง UptimeRobot ตรวจหน้าเว็บและ `/api/health` แล้ว โดยใช้ HEAD ที่บัญชี Free รองรับ (ตรวจฐานข้อมูลเหมือน GET) ทุก 5 นาทีและ timeout 10 วินาที รายละเอียดหลักฐานและข้อที่ยังไม่ได้ทดสอบอยู่ใน `DEPLOYMENT.md`
 
 ## โครงสร้าง
 
