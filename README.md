@@ -21,6 +21,8 @@ npm run dev
 
 ## ตั้งค่า Supabase
 
+ดู [คู่มือ Supabase](supabase/README.md) สำหรับโครงสร้างตาราง สิทธิ์/RLS วิธีตั้งค่า migration, RPC, Storage, Realtime และการตรวจสอบ โดยใช้ placeholder แทนข้อมูลส่วนตัวทั้งหมด
+
 1. สร้างโปรเจกต์ Supabase **ใหม่สำหรับ development** และเก็บ production แยกกัน
 2. ใช้ Supabase CLI ที่รองรับ `supabase --help` เพื่อเชื่อมโปรเจกต์ แล้ว apply ไฟล์ใน `supabase/migrations/` ตามลำดับ หรือเปิด SQL Editor แล้วรันแต่ละไฟล์ตามลำดับ ห้ามรันกับระบบเก่าที่มีข้อมูลโดยไม่ตรวจ schema
 3. คัดลอก `.env.example` เป็น `.env` ตั้ง URL กับ **publishable key** ของโปรเจกต์เดียวกันทั้งสี่ค่า ห้ามใส่ `service_role`/secret key ในตัวแปร `VITE_`
