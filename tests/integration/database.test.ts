@@ -42,17 +42,27 @@ describe('Postgres migrations and contracts (PGlite, not live Supabase)', () => 
     expect(result.rows[0].count).toBe(1);
     await expect(db.query("insert into public.classrooms(label) values ('อีกห้อง')")).rejects.toThrow();
   });
-  it('anon อ่านได้ แต่แก้รายชื่อหรือเขียนสถานะตรง ๆ ไม่ได้', async () => {
+  it('anon จัดการข้อมูลห้องร่วมกันได้ แต่ลบถาวร/แก้สถานะตรง ๆ/อ่าน private ไม่ได้', async () => {
     await asRole('anon', '', async () => {
       expect((await db.query<{ name: string }>('select name from public.students')).rows[0].name).toBe('นักเรียนทดสอบ');
-      await expect(db.query("insert into public.students(classroom_id,no,name) values ($1,8,'ห้ามเพิ่ม')", [room])).rejects.toThrow();
+      await db.query("insert into public.students(classroom_id,no,name) values ($1,88,'เพิ่มร่วมกัน')", [room]);
+      await db.query("update public.students set name='แก้ร่วมกัน',archived_at=now() where no=88");
+      expect((await db.query("select name from public.students where no=88")).rows).toEqual([{name:'แก้ร่วมกัน'}]);
+      await db.query("select public.save_classroom('ห้องทดสอบ','ภาคเรียนร่วมกัน')");
+      await expect(db.query("delete from public.students where no=88")).rejects.toThrow();
       await expect(db.query("update public.submissions set status='submitted'")).rejects.toThrow();
+      await expect(db.query('select * from private.admin_members')).rejects.toThrow();
+      await expect(db.query('select * from private.import_batches')).rejects.toThrow();
     });
   });
-  it('authenticated ที่ไม่ใช่ผู้ดูแลไม่สามารถเพิ่มข้อมูล', async () => {
+  it('authenticated ที่ไม่ใช่ผู้ดูแลเพิ่ม/แก้ไขวิชาและงานร่วมกันได้', async () => {
     await asRole('authenticated', student, async () => {
       expect((await db.query<{ admin_access: boolean }>('select public.admin_access()')).rows[0].admin_access).toBe(false);
-      await expect(db.query("insert into public.subjects(classroom_id,name) values ($1,'ห้ามเพิ่ม')", [room])).rejects.toThrow();
+      const added = await db.query<{id:string}>("insert into public.subjects(classroom_id,name) values ($1,'วิชาร่วมกัน') returning id", [room]);
+      await db.query("update public.subjects set name='วิชาแก้ไขร่วมกัน' where id=$1", [added.rows[0].id]);
+      const assignment = await db.query<{id:string}>("insert into public.assignments(classroom_id,subject_id,title,task_type,assigned_on,due_date) values ($1,$2,'งานร่วมกัน','do','2026-10-29','2026-10-30') returning id", [room, added.rows[0].id]);
+      await db.query("update public.assignments set title='แก้ไขงานร่วมกัน',archived_at=now() where id=$1", [assignment.rows[0].id]);
+      expect((await db.query('select title from public.assignments where id=$1',[assignment.rows[0].id])).rows).toEqual([{title:'แก้ไขงานร่วมกัน'}]);
     });
   });
   it('RPC สถานะตรวจ version, retry ไม่เพิ่มซ้ำ, done ของ submit ยังไม่มี completed_at', async () => {
@@ -73,7 +83,7 @@ describe('Postgres migrations and contracts (PGlite, not live Supabase)', () => 
     await expect(db.query("insert into public.submissions(classroom_id,student_id,assignment_id,status) values ($1,$2,$3,'done')", [room, crypto.randomUUID(), task])).rejects.toThrow();
   });
   it('import ทั้งชุดเป็น atomic และ batch เดิมนำเข้าซ้ำไม่เพิ่มแถว', async () => {
-    await asRole('authenticated', admin, async () => {
+    await asRole('anon', '', async () => {
       const batch = crypto.randomUUID(), rows = [{ number: 2, name: 'นำเข้า ทดสอบ', studentCode: '00002' }];
       await db.query('select public.import_students($1,$2,$3)', [room, batch, JSON.stringify(rows)]);
       await db.query('select public.import_students($1,$2,$3)', [room, batch, JSON.stringify(rows)]);
@@ -83,7 +93,7 @@ describe('Postgres migrations and contracts (PGlite, not live Supabase)', () => 
     });
   });
   it('รูปใหม่ activate ไม่ได้ก่อน upload และสลับรูปแล้วยังมี active เดียว', async () => {
-    await asRole('authenticated', admin, async () => {
+    await asRole('anon', '', async () => {
       const first = crypto.randomUUID(), second = crypto.randomUUID();
       for (const id of [first, second]) {
         await db.query("insert into public.timetable_images(id,classroom_id,title,storage_path,mime_type,width,height,byte_size) values ($1,$2,'ภาพทดสอบ',$3,'image/png',1200,800,100)", [id, room, `${room}/${id}/original.png`]);

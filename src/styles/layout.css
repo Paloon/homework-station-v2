@@ -111,6 +111,7 @@ select.status-submitted { background: #dbeafe; color: #1d4ed8; }
 .overview-bar { background: #e7eefb; height: 5px; margin-top: 10px; max-width: 240px; border-radius: 4px; }
 .overview-bar span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
 .task-search { margin-bottom: 16px; }
+.task-edit-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px; border-top: 1px solid #e5eaf1; padding-top: 8px; }
 .follow-up-filter { max-width: 280px; margin: 16px 0; }
 .follow-up-action { display: grid; gap: 8px; justify-items: start; }
 .copy-fallback { margin-top: 16px; }

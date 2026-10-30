@@ -6,9 +6,6 @@ export interface Repository {
   configured: boolean;
   fixture: boolean;
   load(includeArchived?: boolean): Promise<ClassroomData>;
-  adminAccess(): Promise<boolean>;
-  signIn(email: string, password: string): Promise<void>;
-  signOut(): Promise<void>;
   setStatus(studentId: string, assignmentId: string, status: Status, version: number): Promise<unknown>;
   saveClassroom(name: string, term: string): Promise<void>;
   saveStudent(student: Student, classroomId: string): Promise<void>;

@@ -11,7 +11,6 @@ export function createFixtureRepository(): Repository {
   return {
     configured: true, fixture: true,
     load: (includeArchived = false) => request('load', { includeArchived }) as Promise<ClassroomData>,
-    adminAccess: () => request('adminAccess'), signIn: (email, password) => request('signIn', { email, password }), signOut: () => request('signOut'),
     setStatus: (studentId, assignmentId, status, version) => request('setStatus', { studentId, assignmentId, status, version }),
     saveClassroom: (name, term) => request('saveClassroom', { name, term }),
     saveStudent: (student, classroomId) => request('saveStudent', { student, classroomId }),

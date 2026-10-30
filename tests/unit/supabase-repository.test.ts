@@ -17,7 +17,6 @@ describe('Supabase SDK repository with HTTP test doubles', () => {
       if (table === 'subjects') result = [{ id: 'subject', name: 'วิชาทดสอบ' }];
       if (table === 'assignments') result = [{ id: 'task', subject_id: 'subject', title: 'งาน', task_type: 'submit', assigned_on: '2026-10-26', due_date: '2026-10-29', description: '', attachment_url: null }];
       if (table === 'submissions') result = [{ student_id: 'student-last', assignment_id: 'task', status: 'submitted', version: 2 }];
-      if (table === 'admin_access') result = false;
       if (table === 'set_submission_status') result = { version: 3 };
       return new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json' } });
     }));

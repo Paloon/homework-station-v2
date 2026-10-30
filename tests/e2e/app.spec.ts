@@ -4,6 +4,80 @@ import { emptyData } from '../../src/domain/types';
 
 test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-10-29T05:00:00Z')); });
 
+test('นักเรียนเพิ่มวิชาและงานร่วมกันจากหน้างานได้โดยไม่ล็อกอิน', async ({ page, context }) => {
+  const data = fixtureData(); data.subjects = []; data.assignments = []; data.submissions = [];
+  const fixture = await installFixture(context, data);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?fixture=1&student=student-a');
+  await expect(page.getByRole('button', { name: 'เพิ่มงาน', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'เพิ่มวิชา', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('ชื่อวิชา').fill('คณิตศาสตร์ร่วมกัน');
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'เพิ่มงาน', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('ชื่องาน', { exact: true }).fill('แบบฝึกหัดที่เพื่อนเพิ่ม');
+  await dialog.getByLabel('วันครบกำหนด', { exact: true }).fill('2026-10-30');
+  await dialog.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('[data-task]')).toContainText('แบบฝึกหัดที่เพื่อนเพิ่ม');
+  await expect(page).toHaveURL(/student=student-a/);
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  expect(fixture.state.subjects).toHaveLength(1); expect(fixture.state.assignments).toHaveLength(1);
+  expect(fixture.calls.some(call => /adminAccess|signIn/.test(call.action))).toBe(false);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: '.local-check/student-managed-tasks.png', fullPage: true });
+});
+
+test('นักเรียนแก้และเก็บงานเข้าประวัติหลังกรองรายการได้ และบันทึกซ้ำเมื่อเกิดข้อผิดพลาดได้', async ({ page, context }) => {
+  const fixture = await installFixture(context, fixtureData(), { saveError: true });
+  await page.goto('/?fixture=1&student=student-a');
+  const search = page.getByRole('searchbox', { name: 'ค้นหางาน', exact: true });
+  await search.fill('ไม่มีรายการ'); await search.fill('ต้องส่ง');
+  await page.getByRole('button', { name: 'แก้ไขงาน งานทดสอบที่ต้องส่ง', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('ชื่องาน', { exact: true }).fill('งานที่เพื่อนแก้ไขร่วมกัน');
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('จำลองบันทึกล้มเหลว');
+  await expect(page.getByRole('dialog').getByLabel('ชื่องาน', { exact: true })).toHaveValue('งานที่เพื่อนแก้ไขร่วมกัน');
+  fixture.recoverSave();
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await search.fill('');
+  await expect(page.locator('[data-task="task-a"]')).toContainText('งานที่เพื่อนแก้ไขร่วมกัน');
+  await page.getByRole('button', { name: 'เก็บงานเข้าประวัติ งานที่เพื่อนแก้ไขร่วมกัน', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'เก็บเข้าประวัติ', exact: true }).click();
+  await expect(page.locator('[data-task="task-a"]')).toHaveCount(0);
+  expect(fixture.state.assignments.find(task => task.id === 'task-a')?.archivedAt).toBeTruthy();
+});
+
+test('เครื่องมือรายชื่อ วิชา ห้องเรียน และตารางสอนเปิดใช้โดยไม่ล็อกอิน', async ({ page, context }) => {
+  const fixture = await installFixture(context);
+  await page.goto('/?fixture=1&view=manage');
+  await expect(page.getByRole('button', { name: 'เข้าสู่ระบบผู้ดูแล', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'เพิ่มนักเรียน', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('เลขที่', { exact: true }).fill('20');
+  await page.getByRole('dialog').getByLabel('ชื่อ-นามสกุล', { exact: true }).fill('นักเรียนเพิ่มร่วมกัน');
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('#manage-student-list')).toContainText('นักเรียนเพิ่มร่วมกัน');
+  await page.getByRole('button', { name: 'วิชา', exact: true }).click();
+  await page.locator('.data-row').first().getByRole('button', { name: 'แก้ไข', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('ชื่อวิชา').fill('วิชาที่ช่วยกันแก้ไข');
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.manage-section')).toContainText('วิชาที่ช่วยกันแก้ไข');
+  await page.getByRole('button', { name: 'ห้องเรียน', exact: true }).click();
+  await page.getByRole('button', { name: 'แก้ไขข้อมูลห้อง', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('ชื่อห้อง', { exact: true }).fill('ห้องที่นักเรียนจัดการ');
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('#classroom-context')).toContainText('ห้องที่นักเรียนจัดการ');
+  await page.goto('/?fixture=1&view=timetable');
+  await page.getByRole('button', { name: 'เพิ่มรูปตารางสอน', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(fixture.calls.some(call => /adminAccess|signIn/.test(call.action))).toBe(false);
+});
+
 test('ติดตามงาน: แยกกำหนดส่ง ดูคนยังไม่ครบ และคัดลอกเมื่อ Clipboard ใช้ไม่ได้', async ({ page, context }) => {
   const data = fixtureData();
   data.assignments.push({ ...data.assignments[1], id: 'task-future', title: 'งานในอนาคต', dueDate: '2026-10-31' });

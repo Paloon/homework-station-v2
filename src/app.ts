@@ -18,7 +18,7 @@ const views: Record<View, { label: string; icon: Parameters<typeof icon>[0] }> =
 const initialFilters = (): Filters => ({ completion: 'pending', subjectId: '', type: '', due: '', search: '' });
 
 export function startApp(root: HTMLElement): void {
-  let data: ClassroomData = emptyData(), repository: Repository | null = null, admin = false;
+  let data: ClassroomData = emptyData(), repository: Repository | null = null;
   let view: View = 'tasks', studentId = '', loading = true, loadError = '', studentSearch = '', today = bangkokToday();
   let filters = initialFilters(), manageTab: ManageTab = 'students', loadGeneration = 0, loaded = false;
   const assignmentFilters: ManageContext['assignmentFilters'] = { search: '', subjectId: '', due: '' };
@@ -51,7 +51,7 @@ export function startApp(root: HTMLElement): void {
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; toast.textContent = ''; }, 6500);
   }
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  function context(): ManageContext { return { data, repository, admin, tab: manageTab, assignmentFilters, notify, refresh, setTab: tab => { manageTab = tab; renderContent(); } }; }
+  function context(): ManageContext { return { data, repository, tab: manageTab, assignmentFilters, notify, refresh, setTab: tab => { manageTab = tab; renderContent(); } }; }
   function classroomContext(): void {
     root.querySelector<HTMLElement>('#classroom-context')!.innerHTML = data.classroom ? `<strong>${e(data.classroom.name)}</strong><span>${e(data.classroom.term)}</span>` : '<span>ยังไม่ได้ตั้งค่าห้องเรียน</span>';
     const connection = root.querySelector<HTMLElement>('#connection')!;
@@ -66,7 +66,7 @@ export function startApp(root: HTMLElement): void {
   function studentList(): string {
     const search = studentSearch.trim().toLocaleLowerCase('th');
     const students = data.students.filter(student => `${student.name} ${student.number} ${student.studentCode}`.toLocaleLowerCase('th').includes(search));
-    if (!students.length) return `<div class="sidebar-empty">${icon(search ? 'search' : 'students', 28)}<p>${search ? 'ไม่พบนักเรียนที่ตรงกับคำค้น' : 'ยังไม่มีรายชื่อนักเรียน'}</p>${search ? '<button class="button quiet" data-clear-search>ล้างคำค้น</button>' : '<p class="field-help">ผู้ดูแลเพิ่มรายชื่อได้จากหน้าจัดการ</p>'}</div>`;
+    if (!students.length) return `<div class="sidebar-empty">${icon(search ? 'search' : 'students', 28)}<p>${search ? 'ไม่พบนักเรียนที่ตรงกับคำค้น' : 'ยังไม่มีรายชื่อนักเรียน'}</p>${search ? '<button class="button quiet" data-clear-search>ล้างคำค้น</button>' : '<p class="field-help">เพิ่มรายชื่อได้จากหน้าจัดการ</p>'}</div>`;
     return students.map(student => {
       const progress = calculateProgress(data.assignments, data.submissions, student.id);
       return `<button class="student-choice" data-student="${e(student.id)}" aria-pressed="${studentId === student.id}"><span class="student-number">${student.number}</span><span style="flex:1;min-width:0"><span class="student-name">${e(student.name)}</span><span class="student-meta" data-student-progress="${e(student.id)}">${progress.percent === null ? 'ยังไม่มีงานบังคับ' : `งานบังคับครบ ${progress.completed}/${progress.required}`}</span>${progress.percent !== null ? `<span class="student-mini-progress" aria-hidden="true"><span style="width:${progress.percent}%"></span></span>` : ''}</span></button>`;
@@ -120,12 +120,12 @@ export function startApp(root: HTMLElement): void {
     const student = data.students.find(item => item.id === studentId);
     if (view === 'tasks') {
       const mobile = `<div class="mobile-student"><div><small>นักเรียนที่เลือก</small><strong>${e(student?.name ?? 'ยังไม่ได้เลือกนักเรียน')}</strong></div><button class="button" data-select-student>${student ? 'เปลี่ยน' : 'เลือกชื่อ'}</button></div>`;
-      const heading = `<div class="page-heading"><div><h1>${student ? 'งานของคุณ' : 'งานของห้องเรียน'}</h1><p>${student ? `${e(student.name)} · เลขที่ ${student.number}` : 'ดูสิ่งที่ต้องทำ แล้วค่อย ๆ ทำให้ครบ'}</p></div><a class="button" data-view="timetable" href="${e(link('timetable'))}">${icon('calendar')} ตารางสอน</a></div>`;
+      const heading = `<div class="page-heading"><div><h1>${student ? 'งานของคุณ' : 'งานของห้องเรียน'}</h1><p>${student ? `${e(student.name)} · เลขที่ ${student.number}` : 'ดูสิ่งที่ต้องทำ แล้วค่อย ๆ ทำให้ครบ'}</p></div><div class="row-actions">${repository && data.classroom ? `<button class="button" data-add="subjects">${icon('plus')} เพิ่มวิชา</button><button class="button primary" data-add="assignments" ${!data.subjects.length ? 'disabled' : ''}>${icon('plus')} เพิ่มงาน</button>` : ''}<a class="button" data-view="timetable" href="${e(link('timetable'))}">${icon('calendar')} ตารางสอน</a></div></div>${repository && data.classroom && !data.subjects.length ? '<p class="notice info task-search">เพิ่มวิชาก่อน แล้วจึงเพิ่มงานให้ทุกคนในห้องได้</p>' : ''}`;
       let body: string;
-      if (!student) body = `<div class="paper">${emptyState(studentId ? 'ไม่พบชื่อนักเรียนนี้แล้ว' : data.students.length ? 'เลือกนักเรียนเพื่อดูงานของคุณ' : 'ห้องเรียนกำลังรอรายชื่อ', studentId ? 'รายชื่อนี้อาจถูกเก็บเข้าประวัติ เลือกชื่ออื่นเพื่อดูงานต่อได้' : data.students.length ? 'ดูงานที่ยังไม่ครบ วันกำหนดส่ง และบันทึกความคืบหน้าของคุณ' : 'เมื่อผู้ดูแลเพิ่มนักเรียนและงานแล้ว จะเลือกชื่อเพื่อติดตามงานได้จากหน้านี้', 'tasks', data.students.length ? '<button class="button primary" data-select-student>เลือกนักเรียน</button>' : `<a class="button primary" data-view="manage" href="${e(link('manage'))}">${icon('plus')} เริ่มตั้งค่าห้องเรียน</a>`)}<div class="blank-lines" aria-hidden="true"><i></i><i></i><i></i></div></div><p class="task-intro">${icon('calendar', 18)} เปิดตารางสอนได้ทันที แม้ยังไม่ได้เลือกนักเรียน</p>`;
-      else body = `<div id="student-progress">${progressMarkup(data, student.id)}</div><div id="task-filters">${taskFilters(data, filters)}</div><div id="task-list">${taskList(data, student.id, filters, today)}</div>`;
+      if (!student) body = `<div class="paper">${emptyState(studentId ? 'ไม่พบชื่อนักเรียนนี้แล้ว' : data.students.length ? 'เลือกนักเรียนเพื่อดูงานของคุณ' : 'ห้องเรียนกำลังรอรายชื่อ', studentId ? 'รายชื่อนี้อาจถูกเก็บเข้าประวัติ เลือกชื่ออื่นเพื่อดูงานต่อได้' : data.students.length ? 'ดูงานที่ยังไม่ครบ วันกำหนดส่ง และบันทึกความคืบหน้าของคุณ' : 'เมื่อเพิ่มนักเรียนและงานแล้ว จะเลือกชื่อเพื่อติดตามงานได้จากหน้านี้', 'tasks', data.students.length ? '<button class="button primary" data-select-student>เลือกนักเรียน</button>' : `<a class="button primary" data-view="manage" href="${e(link('manage'))}">${icon('plus')} เริ่มตั้งค่าห้องเรียน</a>`)}<div class="blank-lines" aria-hidden="true"><i></i><i></i><i></i></div></div><p class="task-intro">${icon('calendar', 18)} เปิดตารางสอนได้ทันที แม้ยังไม่ได้เลือกนักเรียน</p>`;
+      else body = `<div id="student-progress">${progressMarkup(data, student.id)}</div><div id="task-filters">${taskFilters(data, filters)}</div><div id="task-list">${taskList(data, student.id, filters, today, !!repository)}</div>`;
       content = `<div class="work-layout"><aside class="student-sidebar" aria-label="รายชื่อนักเรียน">${studentsMarkup('sidebar')}</aside><section class="task-main">${mobile}${heading}${body}</section></div>`;
-    } else if (view === 'timetable') content = timetableView(data, admin);
+    } else if (view === 'timetable') content = timetableView(data, !!repository && !!data.classroom);
     else if (view === 'overview') content = overviewView(data, today, followUpDue);
     else if (view === 'manage') content = manageView(context());
     else if (view === 'students') content = `<div class="page-heading"><div><h1>รายชื่อนักเรียน</h1><p>เลือกชื่อเพื่อเปิดดูงานและความคืบหน้า</p></div></div><div class="paper" style="max-width:640px">${studentsMarkup('roster')}</div>`;
@@ -140,7 +140,7 @@ export function startApp(root: HTMLElement): void {
       bindTimetable(area, data, notify);
       area.querySelector('[data-upload-timetable]')?.addEventListener('click', () => uploadTimetable(context()));
     }
-    if (view === 'manage') { bindManage(area, context()); area.querySelector('[data-setup]')?.addEventListener('click', openSetup); }
+    if (view === 'tasks' || view === 'manage') { bindManage(area, context()); area.querySelector('[data-setup]')?.addEventListener('click', openSetup); }
     area.querySelector('[data-copy-week]')?.addEventListener('click', async () => {
       const summary = weeklySummary(data, today);
       try { if (!navigator.clipboard?.writeText) throw new Error(); await navigator.clipboard.writeText(summary); notify('คัดลอกสรุปแล้ว'); }
@@ -178,7 +178,7 @@ export function startApp(root: HTMLElement): void {
     const container = root.querySelector<HTMLElement>('#task-list'); if (!container) return;
     const active = document.activeElement as HTMLElement | null;
     const activeTask = active?.getAttribute('data-status');
-    const desired = document.createElement('div'); desired.innerHTML = taskList(data, studentId, filters, today);
+    const desired = document.createElement('div'); desired.innerHTML = taskList(data, studentId, filters, today, !!repository);
     const groups = [...desired.querySelectorAll<HTMLElement>('[data-group]')];
     if (!groups.length) container.replaceChildren(...desired.childNodes);
     else {
@@ -212,7 +212,7 @@ export function startApp(root: HTMLElement): void {
       container.querySelectorAll<HTMLElement>('[data-task]').forEach(card => { if (!keepCards.has(card.dataset.task!)) card.remove(); });
       container.querySelectorAll<HTMLElement>('[data-group]').forEach(group => { if (!keepGroups.has(group.dataset.group!)) group.remove(); });
     }
-    bindStatuses();
+    bindStatuses(); bindManage(container, context());
     container.querySelector('[data-reset-filters]')?.addEventListener('click', resetFilters);
     if (activeTask) (container.querySelector<HTMLSelectElement>(`[data-status="${CSS.escape(activeTask)}"]`) ?? root.querySelector<HTMLButtonElement>('[data-completion][aria-pressed=true]'))?.focus({ preventScroll: true });
     root.querySelector('#student-progress')!.innerHTML = progressMarkup(data, studentId);
@@ -256,10 +256,10 @@ export function startApp(root: HTMLElement): void {
     const generation = ++loadGeneration;
     loading = true; loadError = ''; classroomContext();
     try {
-      const [next, access] = await Promise.all([repository.load(), repository.adminAccess()]);
+      const next = await repository.load();
       if (generation !== loadGeneration) return;
       const priorStudent = studentId, priorAssignments = data.assignments, priorStudents = data.students, priorSubjects = data.subjects;
-      data = next; admin = access; loaded = true; loading = false;
+      data = next; loaded = true; loading = false;
       if (filters.subjectId && !data.subjects.some(subject => subject.id === filters.subjectId)) filters.subjectId = '';
       if (studentId && !data.students.some(student => student.id === studentId)) {
         studentId = ''; history.replaceState(null, '', link(view, '')); notify('นักเรียนที่เลือกไม่อยู่ในรายชื่อปัจจุบัน กรุณาเลือกชื่อใหม่'); rebuild = true;
@@ -278,7 +278,7 @@ export function startApp(root: HTMLElement): void {
     clearTimeout(refreshTimer); refreshTimer = setTimeout(() => { void refresh(); }, 250);
   }
   function openSetup() {
-    openDialog('เชื่อมต่อห้องเรียน', '<ol class="setup-steps"><li>สร้างโปรเจกต์ Supabase แล้วใช้ไฟล์ migration ที่เตรียมไว้</li><li>ตั้งค่า URL และ publishable key ในไฟล์ .env ตาม .env.example</li><li>เพิ่มบัญชีผู้ดูแลตาม README แล้วเปิดเว็บใหม่</li><li>เข้าสู่ระบบผู้ดูแล ตั้งชื่อห้อง เพิ่มวิชาและนักเรียน แล้วเริ่มเพิ่มงาน</li></ol><p class="field-help">ขั้นตอนสำหรับผู้ดูแลระบบอยู่ใน README.md ของโปรเจกต์</p>');
+    openDialog('เชื่อมต่อห้องเรียน', '<ol class="setup-steps"><li>สร้างโปรเจกต์ Supabase แล้วใช้ไฟล์ migration ที่เตรียมไว้</li><li>ตั้งค่า URL และ publishable key ในไฟล์ .env ตาม .env.example</li><li>เปิดเว็บใหม่เพื่อเริ่มจัดการข้อมูลร่วมกัน</li><li>ตั้งชื่อห้อง เพิ่มวิชาและนักเรียน แล้วเริ่มเพิ่มงาน</li></ol><p class="field-help">ขั้นตอนสำหรับผู้ดูแลระบบอยู่ใน README.md ของโปรเจกต์</p>');
   }
 
   readRoute();

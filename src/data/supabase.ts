@@ -16,7 +16,7 @@ function databaseError(error: { code?: string; message?: string } | null): void 
   if (error.message?.includes('RECORD_ARCHIVED')) throw new Error('นักเรียนหรืองานนี้ถูกเก็บเข้าประวัติแล้ว กรุณาโหลดข้อมูลล่าสุด');
   if (error.message?.includes('SUBJECT_IN_USE')) throw new Error('วิชานี้ยังมีงานใช้งานอยู่ กรุณาเก็บงานเหล่านั้นเข้าประวัติก่อน');
   if (error.code === '23505') throw new Error('มีเลขที่ รหัส หรือชื่อวิชานี้แล้ว กรุณาตรวจรายการก่อนบันทึกอีกครั้ง');
-  if (error.code === '42501' || error.code === 'PGRST301') throw new Error('ไม่มีสิทธิ์บันทึกรายการนี้ กรุณาเข้าสู่ระบบผู้ดูแลอีกครั้ง');
+  if (error.code === '42501' || error.code === 'PGRST301') throw new Error('ไม่มีสิทธิ์บันทึกรายการนี้ กรุณาโหลดหน้าเว็บใหม่ หากยังเกิดซ้ำให้ตรวจการตั้งค่าห้องเรียน');
   throw new Error('เชื่อมต่อหรือบันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่ หากยังเกิดซ้ำให้ผู้ดูแลตรวจการตั้งค่าระบบ');
 }
 
@@ -68,12 +68,6 @@ export function createSupabaseRepository(url: string, key: string): Repository {
         timetable: images.data?.[0] ? timetable(images.data[0]) : null,
       };
     },
-    async adminAccess() { const { data, error } = await client.rpc('admin_access'); databaseError(error); return data === true; },
-    async signIn(email, password) {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) throw new Error('เข้าสู่ระบบไม่สำเร็จ ตรวจอีเมลและรหัสผ่านแล้วลองใหม่');
-    },
-    async signOut() { const { error } = await client.auth.signOut(); databaseError(error); },
     async setStatus(studentId, assignmentId, status, version) {
       const result = await client.rpc('set_submission_status', { p_student_id: studentId, p_assignment_id: assignmentId, p_status: status, p_expected_version: version });
       databaseError(result.error); return result.data;

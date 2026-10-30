@@ -15,8 +15,8 @@ export function fixtureData(): ClassroomData {
     timetable: null,
   };
 }
-export async function installFixture(context: BrowserContext, initial = fixtureData(), options: { admin?: boolean; loadError?: boolean; saveError?: boolean; delayMs?: number } = {}) {
-  const state = structuredClone(initial); let admin = options.admin ?? true, failedLoad = options.loadError ?? false, failedSave = options.saveError ?? false;
+export async function installFixture(context: BrowserContext, initial = fixtureData(), options: { loadError?: boolean; saveError?: boolean; delayMs?: number } = {}) {
+  const state = structuredClone(initial); let failedLoad = options.loadError ?? false, failedSave = options.saveError ?? false;
   const calls: { action: string; payload: any }[] = [];
   await context.route('**/__test__/repository', async route => {
     const { action, payload } = route.request().postDataJSON(); calls.push({ action, payload });
@@ -28,9 +28,6 @@ export async function installFixture(context: BrowserContext, initial = fixtureD
       if (!payload.includeArchived) { data.students = data.students.filter(item => !item.archivedAt); data.subjects = data.subjects.filter(item => !item.archivedAt); data.assignments = data.assignments.filter(item => !item.archivedAt); }
       return reply(data);
     }
-    if (action === 'adminAccess') return reply(admin);
-    if (action === 'signIn') { admin = true; return reply(null); }
-    if (action === 'signOut') { admin = false; return reply(null); }
     if (failedSave) return reply({ message: 'จำลองบันทึกล้มเหลว กรุณาลองใหม่' }, 503);
     if (action === 'setStatus') {
       const current = state.submissions.find(item => item.studentId === payload.studentId && item.assignmentId === payload.assignmentId);

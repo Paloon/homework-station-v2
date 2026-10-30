@@ -1,5 +1,17 @@
 # การเชื่อมบริการ HomeWork Station
 
+## อัปเดต 30 ตุลาคม 2569: นักเรียนจัดการร่วมกัน
+
+- Supabase migration `20261030042654_collaborative_classroom` ติดตั้งแล้ว เปิด INSERT/UPDATE และ RPC สำหรับ anon/authenticated เฉพาะข้อมูลห้องเดียว โดยคง RLS และไม่มีสิทธิ์ DELETE ตารางหลัก
+- เปิด upload รูปตารางสอนที่มี metadata จองไว้; คงชนิด/ขนาดไฟล์และการตรวจพร้อมใช้งานก่อนสลับภาพ
+- ไม่ใช้ Auth/admin gate ในหน้าเว็บแล้ว; private admin/import tables ไม่ได้เปิดให้อ่านโดยตรง
+- SQL บน Supabase จริงทดสอบ role anon: เพิ่ม/แก้ไขรายชื่อ วิชา งาน ห้อง, บันทึกสถานะ, import/retry และปฏิเสธ activate ภาพที่ยังไม่ upload พร้อม rollback ทั้งหมด ตรวจจำนวนก่อน/หลังตรงกัน (1 ห้อง, 30 รายชื่อ, 0 วิชา/งาน/สถานะ, 1 metadata ภาพ)
+- Advisors หลัง migration ไม่มีคำเตือนใหม่; คงคำเตือน Auth เดิมเรื่อง [leaked password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+- ผ่าน 57 tests (23 unit, 8 SQL integration, 26 browser) และ build/typecheck; ดูภาพ mobile fixture แล้ว
+- ยังไม่ทดสอบการส่งไฟล์ผ่าน Storage service จริงในรอบนี้; SQL ตรวจสิทธิ์/constraints ไม่ใช่หลักฐานการ upload bytes
+
+## ประวัติการตั้งค่าครั้งแรก
+
 29 ตุลาคม 2569: ผู้ใช้อนุญาตให้สร้างและเชื่อมบริการใหม่ตามแผน
 
 - GitHub repository ใหม่ (private): https://github.com/Paloon/homework-station-v2

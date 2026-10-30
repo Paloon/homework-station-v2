@@ -11,7 +11,7 @@ import { openDialog } from '../shared/dialog';
 export type ManageTab = 'students' | 'subjects' | 'assignments' | 'timetable' | 'reports' | 'classroom';
 const tabLabels: Record<ManageTab, string> = { students: 'นักเรียน', subjects: 'วิชา', assignments: 'งาน', timetable: 'ตารางสอน', reports: 'นำเข้า / รายงาน', classroom: 'ห้องเรียน' };
 export interface ManageContext {
-  data: ClassroomData; repository: Repository | null; admin: boolean; tab: ManageTab;
+  data: ClassroomData; repository: Repository | null; tab: ManageTab;
   assignmentFilters: Pick<Filters, 'search' | 'subjectId' | 'due'>;
   notify(message: string): void; refresh(): Promise<void>; setTab(tab: ManageTab): void;
 }
@@ -25,10 +25,9 @@ function assignmentTools({ data, assignmentFilters: filters }: ManageContext): s
 }
 
 export function manageView(context: ManageContext): string {
-  const { data, repository, admin, tab } = context;
-  const heading = `<div class="page-heading"><div><h1>จัดการห้องเรียน</h1><p>รายชื่อ วิชา งาน และข้อมูลที่ใช้ร่วมกันในห้อง</p></div>${admin ? `<button class="button" data-signout>${icon('logout')} ออกจากระบบ</button>` : ''}</div>`;
-  if (!repository) return heading + `<div class="paper">${emptyState('เริ่มต้นห้องเรียนของคุณ', 'เชื่อมต่อระบบข้อมูลก่อน แล้วผู้ดูแลจะเพิ่มห้องเรียน รายชื่อ วิชา และงานได้', 'manage', '<button class="button primary" data-setup>ดูขั้นตอนเชื่อมต่อ</button>')}</div><p class="task-intro">${icon('check', 18)} เริ่มข้อมูลใหม่ตามที่กำหนด ไม่มีการนำเข้าข้อมูลจากระบบเก่า</p>`;
-  if (!admin) return heading + `<div class="paper">${emptyState('เข้าสู่ระบบผู้ดูแล', 'นักเรียนเลือกชื่อเพื่อดูงานได้ตามปกติ ส่วนการแก้ข้อมูลห้องเรียนใช้บัญชีผู้ดูแล', 'manage', '<button class="button primary" data-admin-login>เข้าสู่ระบบผู้ดูแล</button>')}</div>`;
+  const { data, repository, tab } = context;
+  const heading = `<div class="page-heading"><div><h1>จัดการห้องเรียน</h1><p>นักเรียนช่วยกันจัดการรายชื่อ วิชา งาน และตารางสอนของห้อง</p></div></div>`;
+  if (!repository) return heading + `<div class="paper">${emptyState('เริ่มต้นห้องเรียนของคุณ', 'เชื่อมต่อระบบข้อมูลก่อน แล้วทุกคนจะเพิ่มห้องเรียน รายชื่อ วิชา และงานได้', 'manage', '<button class="button primary" data-setup>ดูขั้นตอนเชื่อมต่อ</button>')}</div><p class="task-intro">${icon('check', 18)} เริ่มข้อมูลใหม่ตามที่กำหนด ไม่มีการนำเข้าข้อมูลจากระบบเก่า</p>`;
   const tabs = `<div class="manage-tabs" role="group" aria-label="ส่วนจัดการ">${Object.entries(tabLabels).map(([value, label]) => `<button class="button" data-manage-tab="${value}" aria-pressed="${tab === value}">${label}</button>`).join('')}</div>`;
   if (!data.classroom && tab !== 'classroom') return heading + tabs + `<div class="paper">${emptyState('ตั้งค่าห้องเรียนก่อน', 'เพิ่มชื่อห้องและภาคเรียนก่อนเพิ่มรายชื่อ วิชา หรืองาน', 'book', '<button class="button primary" data-edit-classroom>ตั้งค่าห้องเรียน</button>')}</div>`;
   let content = '';
@@ -61,22 +60,14 @@ export function bindManage(container: HTMLElement, context: ManageContext): void
     });
     filterAssignments();
   }
-  container.querySelector('[data-admin-login]')?.addEventListener('click', () => {
-    const dialog = openDialog('เข้าสู่ระบบผู้ดูแล', `<form><label class="field"><span>อีเมล</span><input type="email" name="email" autocomplete="username" required /></label><label class="field"><span>รหัสผ่าน</span><input type="password" name="password" autocomplete="current-password" required /></label><div class="form-error" role="alert" hidden></div><div class="form-actions"><button class="button primary" type="submit">เข้าสู่ระบบ</button></div></form>`);
-    submitForm(dialog, async values => {
-      await repository!.signIn(text(values, 'email'), text(values, 'password'));
-      if (!await repository!.adminAccess()) { await repository!.signOut(); throw new Error('บัญชีนี้ยังไม่ได้รับสิทธิ์ผู้ดูแลห้องเรียน'); }
-    }, refresh, notify, 'เข้าสู่ระบบผู้ดูแลแล้ว');
-  });
-  container.querySelector('[data-signout]')?.addEventListener('click', async () => { try { await repository!.signOut(); await refresh(); notify('ออกจากระบบแล้ว'); } catch (error) { notify(message(error)); } });
   container.querySelectorAll<HTMLButtonElement>('[data-manage-tab]').forEach(button => button.addEventListener('click', () => context.setTab(button.dataset.manageTab as ManageTab)));
-  container.querySelectorAll<HTMLButtonElement>('[data-add],[data-edit]').forEach(button => button.addEventListener('click', () => editEntity(context, (button.dataset.add || button.dataset.edit) as EntityKind, button.dataset.id)));
-  container.querySelectorAll<HTMLButtonElement>('[data-archive]').forEach(button => button.addEventListener('click', () => {
+  container.querySelectorAll<HTMLButtonElement>('[data-add]:not([data-bound]),[data-edit]:not([data-bound])').forEach(button => { button.dataset.bound = 'true'; button.addEventListener('click', () => editEntity(context, (button.dataset.add || button.dataset.edit) as EntityKind, button.dataset.id)); });
+  container.querySelectorAll<HTMLButtonElement>('[data-archive]:not([data-bound])').forEach(button => { button.dataset.bound = 'true'; button.addEventListener('click', () => {
     const kind = button.dataset.archive as EntityKind, id = button.dataset.id!;
     const dialog = openDialog('เก็บรายการเข้าประวัติ', '<form><p>รายการนี้จะไม่แสดงในหน้าติดตามงานปกติ ประวัติที่เกี่ยวข้องยังถูกเก็บไว้</p><div class="form-error" role="alert" hidden></div><div class="form-actions"><button type="button" class="button" data-cancel>ยกเลิก</button><button class="button primary" type="submit">เก็บเข้าประวัติ</button></div></form>');
     dialog.querySelector('[data-cancel]')!.addEventListener('click', () => dialog.close());
     submitForm(dialog, () => repository!.archive(kind, id), refresh, notify, 'เก็บเข้าประวัติแล้ว');
-  }));
+  }); });
   container.querySelector('[data-edit-classroom]')?.addEventListener('click', () => {
     const dialog = openDialog('ข้อมูลห้องเรียน', `<form><label class="field"><span>ชื่อห้อง</span><input name="name" maxlength="100" required value="${e(data.classroom?.name ?? '')}" placeholder="ระบุชื่อห้องจริง" /></label><label class="field"><span>ภาคเรียน / ปีการศึกษา</span><input name="term" maxlength="100" value="${e(data.classroom?.term ?? '')}" placeholder="ระบุตามที่ห้องใช้งาน" /></label>${formFooter()}</form>`);
     submitForm(dialog, values => repository!.saveClassroom(text(values, 'name'), text(values, 'term')), refresh, notify);
@@ -172,7 +163,7 @@ function editEntity(context: ManageContext, kind: EntityKind, id?: string): void
 
 export function uploadTimetable(context: ManageContext): void {
   const { data, repository, refresh, notify } = context;
-  if (!data.classroom || !repository || !context.admin) return;
+  if (!data.classroom || !repository) return;
   let imageId = crypto.randomUUID(), imageUrl = '', dimensions = { width: 0, height: 0 }, selectedFile: File | null = null;
   const dialog = openDialog('เพิ่มรูปตารางสอน', `<form><p class="field-help">${e(data.classroom.name)} ${e(data.classroom.term)} · เก็บต้นฉบับและรูปเดิมไว้</p><label class="field"><span>รูปตารางสอน</span><input name="image" type="file" accept="image/png,image/jpeg,image/webp" required /><span class="field-help">PNG, JPEG หรือ WebP ไม่เกิน 6 MB</span></label><div id="image-preview" hidden></div><label class="field"><span>ชื่อตาราง</span><input name="title" maxlength="200" required /></label><label class="field"><span>ข้อความประกอบ (ถ้ามี)</span><textarea name="note" maxlength="2000"></textarea></label>${formFooter()}</form>`);
   const input = dialog.querySelector<HTMLInputElement>('[name=image]')!, preview = dialog.querySelector<HTMLElement>('#image-preview')!;

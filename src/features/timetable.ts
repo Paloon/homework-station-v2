@@ -3,9 +3,9 @@ import { formatDate } from '../domain/dates';
 import { downloadFile, emptyState, escapeHtml as e, icon, safeUrl } from '../shared/html';
 import { openDialog } from '../shared/dialog';
 
-export function timetableView(data: ClassroomData, admin: boolean): string {
+export function timetableView(data: ClassroomData, canEdit: boolean): string {
   const image = data.timetable;
-  return `<div class="page-heading"><div><h1>ตารางสอน</h1><p>${e(data.classroom ? `${data.classroom.name} ${data.classroom.term}` : 'เปิดดูได้โดยไม่ต้องเลือกนักเรียน')}</p></div>${admin ? `<button class="button primary" data-upload-timetable>${icon('plus')} เพิ่มรูปตารางสอน</button>` : ''}</div>
+  return `<div class="page-heading"><div><h1>ตารางสอน</h1><p>${e(data.classroom ? `${data.classroom.name} ${data.classroom.term}` : 'เปิดดูได้โดยไม่ต้องเลือกนักเรียน')}</p></div>${canEdit ? `<button class="button primary" data-upload-timetable>${icon('plus')} เพิ่มรูปตารางสอน</button>` : ''}</div>
   <div class="paper">${!image ? emptyState('ยังไม่ได้เพิ่มตารางสอน', 'เมื่อเพิ่มรูปตารางสอนแล้ว จะเปิดดูและขยายได้จากหน้านี้', 'calendar') : `<div class="timetable-tools"><div style="flex:1;min-width:0"><h2>${e(image.title)}</h2><small class="muted">อัปเดต ${formatDate(image.updatedAt.slice(0, 10))}</small></div><button class="button" data-open-viewer>${icon('expand')} ขยายดู</button><button class="button" data-download-image>${icon('download')} ดาวน์โหลดรูปต้นฉบับ</button></div><div class="timetable-frame" id="timetable-image"><img src="${e(safeUrl(image.url) ?? '')}" width="${image.width}" height="${image.height}" alt="${e(`ตารางสอน ${data.classroom?.name ?? ''} ${image.title}`)}" /></div>${image.note ? `<p class="timetable-note">${e(image.note)}</p>` : ''}`}</div>`;
 }
 
