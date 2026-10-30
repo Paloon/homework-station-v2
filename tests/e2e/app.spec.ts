@@ -4,6 +4,90 @@ import { emptyData } from '../../src/domain/types';
 
 test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date('2026-10-29T05:00:00Z')); });
 
+test('ติดตามงาน: แยกกำหนดส่ง ดูคนยังไม่ครบ และคัดลอกเมื่อ Clipboard ใช้ไม่ได้', async ({ page, context }) => {
+  const data = fixtureData();
+  data.assignments.push({ ...data.assignments[1], id: 'task-future', title: 'งานในอนาคต', dueDate: '2026-10-31' });
+  data.submissions.push({ studentId: 'student-a', assignmentId: 'task-a', status: 'done', version: 1 });
+  await installFixture(context, data);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }));
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/?fixture=1&view=overview');
+  await expect(page.locator('[data-follow-up-row]')).toHaveCount(3);
+  await page.getByRole('combobox', { name: 'ช่วงกำหนดส่งที่ต้องติดตาม' }).selectOption('overdue');
+  await expect(page.locator('[data-follow-up-row]:visible')).toHaveCount(1);
+  await page.getByRole('button', { name: 'ดูรายชื่อ งานทดสอบที่ต้องส่ง', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('li')).toHaveCount(2);
+  await expect(dialog.locator('li').filter({ hasText: 'นักเรียนทดสอบ หนึ่ง' })).toContainText('ทำเสร็จแล้ว');
+  await expect(dialog.locator('li').filter({ hasText: 'นักเรียนทดสอบ สอง' })).toContainText('ยังไม่เริ่ม');
+  await page.screenshot({ path: '.local-check/follow-up-mobile.png' });
+  await dialog.getByRole('button', { name: 'คัดลอกรายชื่อ', exact: true }).click();
+  await expect(dialog.getByLabel('รายชื่อนักเรียนที่งานยังไม่ครบ')).toHaveValue(/2 คน\n1\. นักเรียนทดสอบ หนึ่ง/);
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'ดูรายชื่อ งานทดสอบที่ต้องส่ง', exact: true })).toBeFocused();
+  await page.getByRole('combobox', { name: 'ช่วงกำหนดส่งที่ต้องติดตาม' }).selectOption('today');
+  await page.getByRole('button', { name: 'ดูรายชื่อ งานทดสอบที่ต้องทำ', exact: true }).click();
+  await expect(dialog.locator('li')).toHaveCount(1);
+  await expect(dialog).toContainText('นักเรียนทดสอบ สอง');
+  await expect(dialog).not.toContainText('นักเรียนทดสอบ หนึ่ง');
+  await page.keyboard.press('Escape');
+  await page.getByRole('combobox', { name: 'ช่วงกำหนดส่งที่ต้องติดตาม' }).selectOption('upcoming');
+  await expect(page.locator('[data-follow-up-row]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-follow-up-row]:visible')).toContainText('งานในอนาคต');
+});
+
+test('ติดตามงาน: คัดลอกรายชื่อเฉพาะคนที่ยังไม่ครบสำเร็จ', async ({ page, context }) => {
+  await installFixture(context);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text: string) => { (window as any).copiedFollowUp = text; } }, configurable: true }));
+  await page.goto('/?fixture=1&view=overview');
+  await page.getByRole('button', { name: 'ดูรายชื่อ งานทดสอบที่ต้องทำ', exact: true }).click();
+  await page.getByRole('button', { name: 'คัดลอกรายชื่อ', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).copiedFollowUp)).toContain('12. นักเรียนทดสอบ สอง — ยังไม่เริ่ม');
+  expect(await page.evaluate(() => (window as any).copiedFollowUp)).not.toContain('นักเรียนทดสอบ หนึ่ง');
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveText('คัดลอกรายชื่อแล้ว');
+});
+
+test('ค้นหางานของนักเรียนร่วมกับตัวกรอง โดยความคืบหน้ายังคิดจากงานทั้งหมด', async ({ page, context }) => {
+  await installFixture(context); await page.goto('/?fixture=1&student=student-a');
+  await page.getByRole('searchbox', { name: 'ค้นหางาน', exact: true }).fill('แบบฝึกหัด');
+  await expect(page.locator('[data-task]')).toHaveCount(1);
+  await expect(page.locator('[data-task]')).toContainText('งานทดสอบที่ต้องส่ง');
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+  await page.getByRole('combobox', { name: 'วิชา', exact: true }).selectOption('subject-b');
+  await expect(page.getByRole('heading', { name: 'ไม่พบงานที่ตรงกับตัวกรอง' })).toBeVisible();
+  await page.getByRole('button', { name: 'ล้างตัวกรอง', exact: true }).click();
+  await expect(page.getByRole('searchbox', { name: 'ค้นหางาน', exact: true })).toHaveValue('');
+  await expect(page.locator('[data-task]')).toHaveCount(3);
+  await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+});
+
+test('ค้นหางานที่จัดการร่วมกับวิชาและกำหนดส่ง ล้างและรักษาตัวกรองเมื่อกลับมาได้', async ({ page, context }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await installFixture(context); await page.goto('/?fixture=1&view=manage');
+  await page.getByRole('button', { name: 'งาน', exact: true }).click();
+  const search = page.getByRole('searchbox', { name: 'ค้นหางานที่จัดการ' });
+  await search.fill('ต้อง');
+  await page.getByRole('combobox', { name: 'วิชาของงาน' }).selectOption('subject-b');
+  await page.getByRole('combobox', { name: 'กำหนดส่งของงาน' }).selectOption('today');
+  await expect(page.locator('[data-manage-assignment]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-manage-assignment]:visible')).toContainText('งานทดสอบที่ต้องทำ');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: '.local-check/manage-search-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'วิชา', exact: true }).click();
+  await page.getByRole('button', { name: 'งาน', exact: true }).click();
+  await expect(search).toHaveValue('ต้อง');
+  await expect(page.getByRole('combobox', { name: 'วิชาของงาน' })).toHaveValue('subject-b');
+  await expect(page.locator('[data-manage-assignment]:visible')).toHaveCount(1);
+  await page.getByRole('combobox', { name: 'กำหนดส่งของงาน' }).selectOption('overdue');
+  await expect(page.locator('#manage-assignment-empty')).toBeVisible();
+  await expect(page.locator('[data-manage-assignment]:visible')).toHaveCount(0);
+  await page.getByRole('button', { name: 'ล้างตัวกรองงาน', exact: true }).click();
+  await expect(search).toHaveValue('');
+  await expect(search).toBeFocused();
+  await expect(page.locator('[data-manage-assignment]:visible')).toHaveCount(3);
+});
+
 test('เว็บปกติไม่มีข้อมูลสมมุติ ทุกหน้ามีสถานะว่างและ browser back ใช้ได้', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');

@@ -110,6 +110,12 @@ select.status-submitted { background: #dbeafe; color: #1d4ed8; }
 .overview-section > p { color: var(--muted); font-size: 0.875rem; margin-top: 8px; }
 .overview-bar { background: #e7eefb; height: 5px; margin-top: 10px; max-width: 240px; border-radius: 4px; }
 .overview-bar span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+.task-search { margin-bottom: 16px; }
+.follow-up-filter { max-width: 280px; margin: 16px 0; }
+.follow-up-action { display: grid; gap: 8px; justify-items: start; }
+.copy-fallback { margin-top: 16px; }
+.assignment-filters { grid-template-columns: 1fr 1fr auto; }
+@media (max-width: 767px) { .assignment-filters [data-reset-assignment-filters] { grid-column: 1 / -1; justify-self: start; } }
 .timetable-frame { padding: 24px; }
 .timetable-frame img { display: block; width: 100%; height: auto; object-fit: contain; }
 .timetable-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 20px 24px; border-bottom: 1px solid var(--border); }

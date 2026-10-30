@@ -8,7 +8,7 @@ import { emptyState, escapeHtml as e, icon } from './shared/html';
 import { openDialog } from './shared/dialog';
 import { progressMarkup, taskFilters, taskList } from './features/tasks';
 import { bindTimetable, timetableView } from './features/timetable';
-import { overviewView, weeklySummary } from './features/overview';
+import { bindOverview, overviewView, weeklySummary } from './features/overview';
 import { bindManage, manageView, uploadTimetable } from './features/manage';
 import type { ManageContext, ManageTab } from './features/manage';
 
@@ -21,6 +21,8 @@ export function startApp(root: HTMLElement): void {
   let data: ClassroomData = emptyData(), repository: Repository | null = null, admin = false;
   let view: View = 'tasks', studentId = '', loading = true, loadError = '', studentSearch = '', today = bangkokToday();
   let filters = initialFilters(), manageTab: ManageTab = 'students', loadGeneration = 0, loaded = false;
+  const assignmentFilters: ManageContext['assignmentFilters'] = { search: '', subjectId: '', due: '' };
+  let followUpDue = '';
   let realtimeReady = false, refreshTimer: ReturnType<typeof setTimeout> | undefined, deferredRefresh = false;
   const scrollPositions = new Map<View, number>(), saving = new Set<string>();
 
@@ -49,7 +51,7 @@ export function startApp(root: HTMLElement): void {
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; toast.textContent = ''; }, 6500);
   }
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  function context(): ManageContext { return { data, repository, admin, tab: manageTab, notify, refresh, setTab: tab => { manageTab = tab; renderContent(); } }; }
+  function context(): ManageContext { return { data, repository, admin, tab: manageTab, assignmentFilters, notify, refresh, setTab: tab => { manageTab = tab; renderContent(); } }; }
   function classroomContext(): void {
     root.querySelector<HTMLElement>('#classroom-context')!.innerHTML = data.classroom ? `<strong>${e(data.classroom.name)}</strong><span>${e(data.classroom.term)}</span>` : '<span>ยังไม่ได้ตั้งค่าห้องเรียน</span>';
     const connection = root.querySelector<HTMLElement>('#connection')!;
@@ -124,7 +126,7 @@ export function startApp(root: HTMLElement): void {
       else body = `<div id="student-progress">${progressMarkup(data, student.id)}</div><div id="task-filters">${taskFilters(data, filters)}</div><div id="task-list">${taskList(data, student.id, filters, today)}</div>`;
       content = `<div class="work-layout"><aside class="student-sidebar" aria-label="รายชื่อนักเรียน">${studentsMarkup('sidebar')}</aside><section class="task-main">${mobile}${heading}${body}</section></div>`;
     } else if (view === 'timetable') content = timetableView(data, admin);
-    else if (view === 'overview') content = overviewView(data, today);
+    else if (view === 'overview') content = overviewView(data, today, followUpDue);
     else if (view === 'manage') content = manageView(context());
     else if (view === 'students') content = `<div class="page-heading"><div><h1>รายชื่อนักเรียน</h1><p>เลือกชื่อเพื่อเปิดดูงานและความคืบหน้า</p></div></div><div class="paper" style="max-width:640px">${studentsMarkup('roster')}</div>`;
     else content = `<div class="page-heading"><div><h1>เพิ่มเติม</h1><p>รายชื่อและเครื่องมือของห้องเรียน</p></div></div><div class="paper more-links"><a data-view="students" href="${e(link('students'))}"><span>${icon('students')} รายชื่อนักเรียน</span>${icon('arrow')}</a><a data-view="manage" href="${e(link('manage'))}"><span>${icon('manage')} จัดการห้องเรียน</span>${icon('arrow')}</a></div>`;
@@ -133,6 +135,7 @@ export function startApp(root: HTMLElement): void {
     area.querySelectorAll('[data-select-student]').forEach(button => button.addEventListener('click', openStudentPicker));
     if (view === 'tasks' || view === 'students') bindStudents(area);
     if (view === 'tasks' && student) { bindTaskFilters(); bindStatuses(); }
+    if (view === 'overview') bindOverview(area, data, today, value => { followUpDue = value; });
     if (view === 'timetable') {
       bindTimetable(area, data, notify);
       area.querySelector('[data-upload-timetable]')?.addEventListener('click', () => uploadTimetable(context()));
@@ -154,6 +157,9 @@ export function startApp(root: HTMLElement): void {
   }
 
   function bindTaskFilters() {
+    root.querySelector<HTMLInputElement>('#filter-search')?.addEventListener('input', event => {
+      filters.search = (event.target as HTMLInputElement).value.trim(); updateTasks();
+    });
     root.querySelectorAll<HTMLButtonElement>('[data-completion]').forEach(button => button.addEventListener('click', () => {
       filters.completion = button.dataset.completion as Filters['completion'];
       root.querySelectorAll<HTMLButtonElement>('[data-completion]').forEach(item => item.setAttribute('aria-pressed', String(item === button))); updateTasks();

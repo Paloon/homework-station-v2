@@ -1,5 +1,6 @@
 import type { Repository, EntityKind } from '../data/repository';
-import type { Assignment, ClassroomData, Student, Subject } from '../domain/types';
+import type { Assignment, ClassroomData, Filters, Student, Subject } from '../domain/types';
+import { selectAssignments } from '../domain/progress';
 import { typeLabels } from '../domain/types';
 import { bangkokToday, calendarDay, formatDate } from '../domain/dates';
 import { reportRows } from '../domain/report';
@@ -11,11 +12,16 @@ export type ManageTab = 'students' | 'subjects' | 'assignments' | 'timetable' | 
 const tabLabels: Record<ManageTab, string> = { students: 'นักเรียน', subjects: 'วิชา', assignments: 'งาน', timetable: 'ตารางสอน', reports: 'นำเข้า / รายงาน', classroom: 'ห้องเรียน' };
 export interface ManageContext {
   data: ClassroomData; repository: Repository | null; admin: boolean; tab: ManageTab;
+  assignmentFilters: Pick<Filters, 'search' | 'subjectId' | 'due'>;
   notify(message: string): void; refresh(): Promise<void>; setTab(tab: ManageTab): void;
 }
 
 function actions(kind: EntityKind, id: string): string {
   return `<div class="row-actions"><button class="button" data-edit="${kind}" data-id="${e(id)}">แก้ไข</button><button class="button quiet" data-archive="${kind}" data-id="${e(id)}">เก็บเข้าประวัติ</button></div>`;
+}
+
+function assignmentTools({ data, assignmentFilters: filters }: ManageContext): string {
+  return `<label class="field task-search"><span>ค้นหางานที่จัดการ</span><input id="manage-assignment-search" type="search" value="${e(filters.search)}" placeholder="ค้นหาชื่องานหรือรายละเอียด" /></label><div class="filters assignment-filters"><label class="field"><span>วิชาของงาน</span><select id="manage-assignment-subject"><option value="">ทุกวิชา</option>${data.subjects.map(subject => `<option value="${e(subject.id)}" ${filters.subjectId === subject.id ? 'selected' : ''}>${e(subject.name)}</option>`).join('')}</select></label><label class="field"><span>กำหนดส่งของงาน</span><select id="manage-assignment-due"><option value="">ทุกช่วงเวลา</option>${[['overdue', 'เกินกำหนด'], ['today', 'วันนี้'], ['week', 'ภายใน 7 วัน']].map(([value, label]) => `<option value="${value}" ${filters.due === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><button class="button quiet" data-reset-assignment-filters>ล้างตัวกรองงาน</button></div><p id="manage-assignment-count" class="muted" role="status"></p>`;
 }
 
 export function manageView(context: ManageContext): string {
@@ -28,7 +34,7 @@ export function manageView(context: ManageContext): string {
   let content = '';
   if (tab === 'students') content = `<div class="section-header"><h2>รายชื่อนักเรียน <span class="count">${data.students.length} คน</span></h2><button class="button primary" data-add="students">${icon('plus')} เพิ่มนักเรียน</button></div><label class="field"><span>ค้นหาชื่อ เลขที่ หรือรหัสประจำตัว</span><input id="manage-search" type="search" placeholder="ค้นหานักเรียน" /></label><ul class="data-list" id="manage-student-list">${data.students.map(student => `<li class="data-row" data-search="${e(`${student.number} ${student.name} ${student.studentCode}`.toLocaleLowerCase('th'))}"><div class="data-row-main"><strong>${student.number}. ${e(student.name)}</strong><p>รหัสประจำตัว ${e(student.studentCode || 'ยังไม่ระบุ')}</p></div>${actions('students', student.id)}</li>`).join('')}</ul>${!data.students.length ? emptyState('ยังไม่มีรายชื่อนักเรียน', 'เพิ่มทีละคน หรือนำเข้า CSV ในส่วนนำเข้า / รายงาน', 'students') : ''}<p id="manage-no-results" class="muted" hidden>ไม่พบนักเรียนที่ตรงกับคำค้น <button class="button quiet" data-clear-manage-search>ล้างคำค้น</button></p>`;
   if (tab === 'subjects') content = `<div class="section-header"><h2>วิชา <span class="count">${data.subjects.length} วิชา</span></h2><button class="button primary" data-add="subjects">${icon('plus')} เพิ่มวิชา</button></div><ul class="data-list">${data.subjects.map(subject => `<li class="data-row"><div class="data-row-main"><strong>${e(subject.name)}</strong><p>ใช้อยู่ใน ${data.assignments.filter(task => task.subjectId === subject.id).length} งาน</p></div>${actions('subjects', subject.id)}</li>`).join('')}</ul>${!data.subjects.length ? emptyState('ยังไม่มีวิชา', 'เพิ่มวิชาเพื่อใช้ร่วมกันในหน้าสร้างงานและแก้ไขงาน', 'book') : ''}`;
-  if (tab === 'assignments') content = `<div class="section-header"><h2>งานทั้งหมด <span class="count">${data.assignments.length} งาน</span></h2><button class="button primary" data-add="assignments" ${!data.subjects.length ? 'disabled' : ''}>${icon('plus')} เพิ่มงาน</button></div>${!data.subjects.length ? '<p class="notice info">เพิ่มวิชาก่อน แล้วจึงสร้างงานในวิชานั้นได้</p>' : ''}<ul class="data-list">${[...data.assignments].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map(task => `<li class="data-row"><div class="data-row-main"><strong>${e(task.title)}</strong><p>${e(data.subjects.find(subject => subject.id === task.subjectId)?.name ?? '')} · ${typeLabels[task.type]} · ครบกำหนด ${formatDate(task.dueDate)}</p></div>${actions('assignments', task.id)}</li>`).join('')}</ul>${!data.assignments.length ? emptyState('ยังไม่มีงาน', 'เพิ่มชื่องาน วันที่มอบหมาย และวันครบกำหนด เพื่อให้นักเรียนติดตามได้', 'tasks') : ''}`;
+  if (tab === 'assignments') content = `<div class="section-header"><h2>งานทั้งหมด <span class="count">${data.assignments.length} งาน</span></h2><button class="button primary" data-add="assignments" ${!data.subjects.length ? 'disabled' : ''}>${icon('plus')} เพิ่มงาน</button></div>${!data.subjects.length ? '<p class="notice info">เพิ่มวิชาก่อน แล้วจึงสร้างงานในวิชานั้นได้</p>' : ''}${assignmentTools(context)}<ul class="data-list">${[...data.assignments].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map(task => `<li class="data-row" data-manage-assignment="${e(task.id)}"><div class="data-row-main"><strong>${e(task.title)}</strong><p>${e(data.subjects.find(subject => subject.id === task.subjectId)?.name ?? '')} · ${typeLabels[task.type]} · ครบกำหนด ${formatDate(task.dueDate)}</p></div>${actions('assignments', task.id)}</li>`).join('')}</ul><p id="manage-assignment-empty" class="muted" hidden>ไม่พบงานที่ตรงกับคำค้นหรือตัวกรอง ลองล้างตัวกรองงานด้านบน</p>${!data.assignments.length ? emptyState('ยังไม่มีงาน', 'เพิ่มชื่องาน วันที่มอบหมาย และวันครบกำหนด เพื่อให้นักเรียนติดตามได้', 'tasks') : ''}`;
   if (tab === 'timetable') content = `<div class="section-header"><h2>รูปตารางสอน</h2><button class="button primary" data-upload-timetable>${icon('upload')} เพิ่มรูปตารางสอน</button></div><p class="section-description">PNG, JPEG หรือ WebP ขนาดไม่เกิน 6 MB เก็บรูปต้นฉบับและประวัติภาพเดิมไว้</p>${data.timetable ? `<p>ใช้งานอยู่: <strong>${e(data.timetable.title)}</strong></p>` : '<p class="muted">ยังไม่ได้เพิ่มตารางสอน</p>'}<button class="button" data-timetable-history style="margin-top:20px">ดูประวัติรูป</button>`;
   if (tab === 'reports') content = `<div class="section-header"><h2>นำเข้ารายชื่อและส่งออกรายงาน</h2></div><p class="section-description">ตรวจตัวอย่างและรายการซ้ำก่อนนำเข้า รายงานใช้ข้อมูลงานและความคืบหน้าทั้งห้องตามขอบเขตที่เลือก</p><ul class="data-list"><li class="data-row"><div class="data-row-main"><strong>นำเข้ารายชื่อนักเรียน</strong><p>CSV ภาษาไทย คอลัมน์เลขที่ ชื่อ-นามสกุล และรหัสประจำตัว</p></div><div class="row-actions"><button class="button" data-roster-template>ดาวน์โหลดแม่แบบ</button><button class="button primary" data-import>${icon('upload')} เลือกไฟล์ CSV</button></div></li><li class="data-row"><div class="data-row-main"><strong>รายงานความคืบหน้าทั้งห้อง</strong><p>หนึ่งแถวต่อนักเรียน พร้อมสถานะทุกงาน วิชา วันส่ง และรหัสงาน</p><p>สูตรความครบคำนวณจากงานในขอบเขตที่เลือก</p></div><div class="row-actions"><label class="field"><span>ขอบเขตรายงาน</span><select id="report-scope"><option value="active">เฉพาะที่ใช้งานอยู่</option><option value="all">รวมข้อมูลที่เก็บเข้าประวัติ</option></select></label><button class="button" data-export>${icon('download')} ส่งออก CSV</button></div></li></ul>`;
   if (tab === 'classroom') content = `<div class="section-header"><h2>ข้อมูลห้องเรียน</h2><button class="button primary" data-edit-classroom>${icon('manage')} ${data.classroom ? 'แก้ไขข้อมูลห้อง' : 'ตั้งค่าห้องเรียน'}</button></div><p><strong>${e(data.classroom?.name ?? 'ยังไม่ได้ตั้งชื่อห้อง')}</strong></p><p class="muted">${e(data.classroom?.term ?? 'ยังไม่ได้ระบุภาคเรียน')}</p><p class="notice info" style="margin-top:24px">รุ่นแรกใช้หนึ่งห้อง เริ่มข้อมูลใหม่ และยังไม่ส่งอีเมลแจ้งงาน</p>`;
@@ -37,6 +43,24 @@ export function manageView(context: ManageContext): string {
 
 export function bindManage(container: HTMLElement, context: ManageContext): void {
   const { data, repository, refresh, notify } = context;
+  const assignmentSearch = container.querySelector<HTMLInputElement>('#manage-assignment-search');
+  if (assignmentSearch) {
+    const subject = container.querySelector<HTMLSelectElement>('#manage-assignment-subject')!;
+    const due = container.querySelector<HTMLSelectElement>('#manage-assignment-due')!;
+    const filterAssignments = () => {
+      Object.assign(context.assignmentFilters, { search: assignmentSearch.value.trim(), subjectId: subject.value, due: due.value });
+      const visible = new Set(selectAssignments(data.assignments, [], '', { ...context.assignmentFilters, completion: 'all', type: '' }, bangkokToday()).map(task => task.id));
+      container.querySelectorAll<HTMLElement>('[data-manage-assignment]').forEach(row => { row.hidden = !visible.has(row.dataset.manageAssignment!); });
+      container.querySelector<HTMLElement>('#manage-assignment-empty')!.hidden = visible.size > 0 || !data.assignments.length;
+      container.querySelector<HTMLElement>('#manage-assignment-count')!.textContent = `แสดง ${visible.size} จาก ${data.assignments.length} งาน`;
+    };
+    assignmentSearch.addEventListener('input', filterAssignments);
+    subject.addEventListener('change', filterAssignments); due.addEventListener('change', filterAssignments);
+    container.querySelector('[data-reset-assignment-filters]')!.addEventListener('click', () => {
+      assignmentSearch.value = ''; subject.value = ''; due.value = ''; filterAssignments(); assignmentSearch.focus();
+    });
+    filterAssignments();
+  }
   container.querySelector('[data-admin-login]')?.addEventListener('click', () => {
     const dialog = openDialog('เข้าสู่ระบบผู้ดูแล', `<form><label class="field"><span>อีเมล</span><input type="email" name="email" autocomplete="username" required /></label><label class="field"><span>รหัสผ่าน</span><input type="password" name="password" autocomplete="current-password" required /></label><div class="form-error" role="alert" hidden></div><div class="form-actions"><button class="button primary" type="submit">เข้าสู่ระบบ</button></div></form>`);
     submitForm(dialog, async values => {
