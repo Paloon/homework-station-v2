@@ -8,16 +8,60 @@
 
 ข้อสรุปรุ่นแรก (29 ต.ค. 2569): นักเรียนเลือกชื่อเหมือนระบบเดิม, ใช้หนึ่งห้อง, เริ่มข้อมูลใหม่, ยังไม่ส่งอีเมล ไม่มีการนำข้อมูลจากโฟลเดอร์ Old มาใช้โดยอัตโนมัติ
 
-## เปิดในเครื่อง
+## Clone และเปิดในเครื่อง
 
-ใช้ Node.js 24 LTS (แนะนำ) หรือ 22.12+ ที่ dependency รองรับ
+Repository นี้เป็น Public ใช้ HTTPS clone ได้โดยไม่ต้องล็อกอิน GitHub หรือขอสิทธิ์ก่อน ต้องมี [Git](https://git-scm.com/downloads) และ [Node.js](https://nodejs.org/) พร้อม npm แนะนำ Node.js 24 LTS (มี `.nvmrc` ให้ผู้ใช้ nvm); รองรับ Node.js ตาม `engines` ใน `package.json`
 
-```powershell
+### 1. ดาวน์โหลดและติดตั้ง
+
+```sh
+git clone https://github.com/Paloon/homework-station-v2.git
+cd homework-station-v2
 npm ci
 npm run dev
 ```
 
-เปิด URL ที่ Vite แสดง ถ้ายังไม่มี `.env` เว็บจะเปิดทุกหน้าได้พร้อมสถานะยังไม่เชื่อมข้อมูล ไม่มีการสร้างรายชื่อหรืองานสมมุติ ปุ่มบันทึกข้อมูลจริงใช้ได้หลังตั้งค่า Supabase
+เปิด URL ที่ Vite แสดงใน terminal (ปกติ `http://127.0.0.1:5173`) ถ้ายังไม่มี `.env` จะเปิดดูหน้าจอและสถานะว่างได้ แต่ยังบันทึกข้อมูลไม่ได้ ไม่มีข้อมูลนักเรียน งาน หรือบัญชีของห้องจริงติดมากับการ clone
+
+หากใช้ nvm บน macOS/Linux ให้รัน `nvm install` และ `nvm use` ก่อน `npm ci` เพื่ออ่านเวอร์ชันจาก `.nvmrc` ไม่ต้องใช้ nvm หากติดตั้ง Node.js รุ่นที่รองรับไว้แล้ว
+
+ไม่ใช้ Git ก็เลือก **Code → Download ZIP** บน GitHub แตกไฟล์ เปิด terminal ในโฟลเดอร์ที่มี `package.json` แล้วรัน `npm ci` และ `npm run dev` ได้
+
+### 2. เชื่อมฐานข้อมูลของคุณ
+
+สร้าง Supabase project ของคุณเองและทำตาม [คู่มือ Supabase](supabase/README.md) ตั้งแต่ migrations จนถึง environment ไม่มีรหัสผ่านหรือ key ของระบบจริงอยู่ใน repository
+
+เมื่อยังไม่มี `.env` ให้คัดลอกแม่แบบ:
+
+```powershell
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+```sh
+# macOS / Linux
+cp .env.example .env
+```
+
+กรอก URL และ publishable key ของโปรเจกต์เดียวกันทั้งสี่ตัวใน `.env` ตามคำอธิบายในแม่แบบ จากนั้นหยุด dev server แล้วรัน `npm run dev` ใหม่ อย่าคัดลอกทับ `.env` ที่ตั้งค่าไว้แล้ว และไม่ commit ไฟล์นี้
+
+### 3. Build และอัปเดตโค้ด
+
+```sh
+npm run build
+npm run preview
+```
+
+Build อยู่ใน `dist/`; preview ใช้ดู frontend ส่วน `/api/health` ต้องใช้ dev server หรือ Vercel ตามหัวข้อด้านล่าง
+
+เมื่อต้องการรับโค้ดใหม่ใน checkout ที่ไม่มีงานค้าง:
+
+```sh
+git pull --ff-only
+npm ci
+```
+
+หากมี migration ใหม่ ต้อง apply ให้ฐานของคุณตามคู่มือ Supabase ด้วย การ pull Git ไม่ได้อัปเดตฐานข้อมูลให้อัตโนมัติ
 
 ## ตั้งค่า Supabase
 
